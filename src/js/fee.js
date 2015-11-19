@@ -200,7 +200,7 @@
 				return;
 			}
 
-			isDirty() ? leaveMessage( function() {
+			wp.fee.isDirty() ? leaveMessage( function() {
 				_off( location );
 			} ) : _off( location );
 		}
@@ -622,7 +622,7 @@
 
 		$window
 		.on( 'beforeunload.fee', function() {
-			if ( ! hidden && isDirty() ) {
+			if ( ! hidden && wp.fee.isDirty() ) {
 				( event || window.event ).returnValue = feeL10n.saveAlert;
 				return feeL10n.saveAlert;
 			}
@@ -796,7 +796,7 @@
 		$( 'a' ).not( 'a[href^="#"]' ).on( 'click.fee', function( event ) {
 			var $this = $( this );
 
-			if ( isDirty() && ! VK.metaKeyPressed( event ) ) {
+			if ( wp.fee.isDirty() && ! VK.metaKeyPressed( event ) ) {
 				event.preventDefault();
 
 				leaveMessage( function() {
