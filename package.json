@@ -47,7 +47,7 @@
     "grunt-contrib-watch": "0.6.x",
     "grunt-jsvalidate": "0.2.x",
     "grunt-rtlcss": "1.5.x",
-    "grunt-sass": "0.16.x",
+    "grunt-sass": "1.1.0",
     "matchdep": "0.3.x"
   },
   "wp": {
