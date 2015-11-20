@@ -30,6 +30,7 @@
 			$categories = $( '.fee-categories' ),
 			$leave = $( '.fee-leave' ),
 			$noticeArea = $( '#fee-notice-area' ),
+			$publishOptions = $( '.fee-publish-options' ),
 			$autoSaveNotice, $saveNotice,
 			$contentParents = $content.parents(),
 			$titleTags, $titles, $title, docTitle,
@@ -39,27 +40,28 @@
 			initializedEditors = 0,
 			releaseLock = true,
 			checkNonces, timeoutNonces,
-			initialPost;
+			initialPost, toolbarShown, toolbarTop, mouseY, toolbarTimeout,
+			publishOptionsVisible;
 
-		var count = 0;
-		var loader = {
-			start: function() {
-				if ( ! count ) {
-					$body.addClass( 'progress' );
-				}
+		function bindEvents( unbind ) {
+			var type = unbind ? 'off' : 'on';
 
-				count++;
-			},
-			stop: function() {
-				if ( count ) {
-					count--;
-				}
+			_.each( {
+				'resize.fee-adjust-ui': adjustUI
+			}, function( callback, eventName ) {
+				$window[ type ]( eventName, callback );
+			} );
 
-				if ( ! count ) {
-					$body.removeClass( 'progress' );
-				}
-			}
-		};
+			_.each( {
+				'mousemove.fee-show-ui': showUI
+			}, function( callback, eventName ) {
+				$document[ type ]( eventName, callback );
+			} );
+		}
+
+		function unbindEvents() {
+			bindEvents( true );
+		}
 
 		// This object's methods can be used to get the edited post data.
 		// It falls back tot the post data on the server.
@@ -139,6 +141,22 @@
 			return _categories;
 		};
 
+		wp.fee.post.post_status = function() {
+			return $( '#fee-post-visibility' ).val() === 'private' ? 'private' : $( '#fee-post-status' ).val() || '';
+		};
+
+		wp.fee.post.post_author_override = function() {
+			return $( '#fee-post-author' ).val() || 0;
+		};
+
+		wp.fee.post.sticky = function() {
+			return $( '#fee-post-visibility' ).val() === 'sticky' || '';
+		};
+
+		wp.fee.post.post_password = function() {
+			return $( '#fee-post-visibility' ).val() === 'password' ? $( '#fee-post-password' ).val() || '' : '';
+		};
+
 		function scheduleNoncesRefresh() {
 			checkNonces = false;
 			clearTimeout( timeoutNonces );
@@ -153,6 +171,9 @@
 			if ( ! hidden ) {
 				return;
 			}
+
+			bindEvents();
+			adjustUI();
 
 			$( '#wp-admin-bar-edit' ).addClass( 'active' );
 			$body.removeClass( 'fee-off' ).addClass( 'fee-on' );
@@ -189,6 +210,8 @@
 				wp.autosave.local.suspend();
 				wp.autosave.server.suspend();
 			}
+
+			unbindEvents();
 
 			$( '#wp-admin-bar-edit' ).removeClass( 'active' );
 			$body.removeClass( 'fee-on' ).addClass( 'fee-off' );
@@ -250,12 +273,10 @@
 			postData._wpnonce = wp.fee.nonces.post;
 
 			$buttons.prop( 'disabled', true );
-			loader.start();
 
 			wp.ajax.post( 'fee_post', postData )
 			.always( function() {
 				$buttons.prop( 'disabled', false );
-				loader.stop();
 			} )
 			.done( function( data ) {
 				// Copy the new post object form the server.
@@ -284,8 +305,6 @@
 
 		function publish( callback ) {
 			save( callback, true );
-			$( '#wp-admin-bar-edit-publish' ).hide();
-			$( '#wp-admin-bar-edit-save > a' ).text( 'Update' );
 		}
 
 		function isDirty() {
@@ -546,6 +565,61 @@
 
 		titleInit();
 
+		function adjustUI() {
+			var contentRect = $content.get( 0 ).getBoundingClientRect(),
+				windowWidth = $window.width();
+
+			if ( contentRect.left >= windowWidth - contentRect.right ) {
+				$body.removeClass( 'fee-right' ).addClass( 'fee-left' );
+			} else {
+				$body.removeClass( 'fee-left' ).addClass( 'fee-right' );
+			}
+
+			$toolbar.css( {
+				left: contentRect.left,
+				width: contentRect.right - contentRect.left
+			} );
+
+			$( '.fee-publish-options-dropdown' ).css( {
+				right: windowWidth - contentRect.right
+			} );
+		}
+
+		function showUI( event ) {
+			mouseY = event.clientY;
+
+			if ( publishOptionsVisible ) {
+				return;
+			}
+
+			if ( mouseY < 100 || mouseY > $window.height() - 100 ) {
+				if ( ! toolbarShown ) {
+					$toolbar.animate( { bottom: 0 }, 'fast' );
+					toolbarShown = true;
+				}
+
+				if ( toolbarTop = mouseY < 100 ) {
+					clearTimeout( toolbarTimeout );
+
+					toolbarTimeout = setTimeout( function() {
+						toolbarTop = false;
+
+						if ( publishOptionsVisible ) {
+							return;
+						}
+
+						if ( toolbarShown && ! ( mouseY < 100 || mouseY > $window.height() - 100 ) ) {
+							$toolbar.animate( { bottom: -50 }, 'slow' );
+							toolbarShown = false;
+						}
+					}, 3000 );
+				}
+			} else if ( ! toolbarTop && ( toolbarShown || toolbarShown == null ) ) {
+				$toolbar.animate( { bottom: -50 }, 'slow' );
+				toolbarShown = false;
+			}
+		}
+
 		$window
 		.on( 'beforeunload.fee', function() {
 			if ( ! hidden && wp.fee.isDirty() ) {
@@ -679,6 +753,12 @@
 			} );
 		} );
 
+		$editLinks
+		.on( 'click.fee', function( event ) {
+			event.preventDefault();
+			toggle();
+		} );
+
 		$categories.on( 'click.fee', function( event ) {
 			if ( hidden ) {
 				return;
@@ -725,31 +805,20 @@
 			}
 		} );
 
-		$( '#wp-admin-bar-edit-publish > a' ).on( 'click.fee', function( event ) {
-			event.preventDefault();
-			publish();
-		} );
-
-		$( '#wp-admin-bar-edit-save > a' ).on( 'click.fee', function( event ) {
-			event.preventDefault();
+		$( '.fee-save' ).on( 'click.fee', function() {
 			save();
 		} );
 
-		$( '#wp-admin-bar-edit > a' ).on( 'click.fee', function( event ) {
-			event.preventDefault();
-			on();
+		$( '.fee-publish' ).on( 'click.fee', function() {
+			publish();
 		} );
 
-		$editLinks.on( 'click.fee', function( event ) {
-			event.preventDefault();
-			toggle();
-		} );
+		$publishOptions.on( 'click.fee', function() {
+			$publishOptions[ publishOptionsVisible ? 'removeClass' : 'addClass' ]( 'active' );
+			$( '.fee-publish-options-dropdown' )[ publishOptionsVisible ? 'hide' : 'show' ]();
 
-		// Temporary.
-		if ( $.inArray( wp.fee.post.post_status(), [ 'publish', 'future', 'private' ] ) !== -1 ) {
-			$( '#wp-admin-bar-edit-publish' ).hide();
-			$( '#wp-admin-bar-edit-save > a' ).text( 'Update' );
-		}
+			publishOptionsVisible = ! publishOptionsVisible;
+		} );
 
 		if ( wp.fee.notices.autosave ) {
 			$autoSaveNotice = addNotice( wp.fee.notices.autosave, 'error' );
@@ -803,6 +872,15 @@
 
 				$document.off( 'click.fee-thumbnail-active' );
 			} );
+		} );
+
+		$( '#fee-post-visibility' ).on( 'change.fee-visibility', function() {
+			if ( $( this ).val() === 'password' ) {
+				$( '#fee-post-password' ).parent().show();
+				$( '#fee-post-password' ).val( wp.fee.postOnServer.post_password ).focus();
+			} else {
+				$( '#fee-post-password' ).parent().hide();
+			}
 		} );
 
 		// This part is copied from post.js.
