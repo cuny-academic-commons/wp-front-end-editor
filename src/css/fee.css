@@ -120,11 +120,11 @@ br.fee-title {
 }
 
 .fee-alert-body {
-	width: 300px;
+	width: 350px;
 	position: fixed;
 	top: 100px;
 	left: 50%;
-	margin-left: -150px;
+	margin-left: -175px;
 	background: #fff;
 	padding: 20px;
 	z-index: 1000000;
