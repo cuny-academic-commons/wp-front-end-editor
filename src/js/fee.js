@@ -333,11 +333,11 @@
 
 		function leaveMessage( callback ) {
 			$leave.show();
-			$leave.find( '.fee-exit' ).focus().on( 'click.fee', function() {
+			$leave.find( '.fee-exit' ).on( 'click.fee', function() {
 				callback();
 				$leave.hide();
 			} );
-			$leave.find( '.fee-save-and-exit' ).on( 'click.fee', function() {
+			$leave.find( '.fee-save-and-exit' ).focus().on( 'click.fee', function() {
 				save( callback );
 				$leave.hide();
 			} );
