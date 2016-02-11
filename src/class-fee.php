@@ -343,7 +343,7 @@ class FEE {
 		}
 
 		if ( force_ssl_admin() && ! is_ssl() ) {
-			wp_redirect( set_url_scheme( $this->edit_link( $post->ID ), 'https' ) );
+			wp_redirect( set_url_scheme( get_permalink( $post->ID ), 'https' ) );
 
 			die;
 		}
